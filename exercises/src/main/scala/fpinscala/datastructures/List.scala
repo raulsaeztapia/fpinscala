@@ -1,6 +1,7 @@
 package fpinscala.datastructures
 
-import annotation.tailrec
+import scala.annotation.tailrec
+import scala.collection.mutable.ListBuffer
 
 sealed trait List[+A] // `List` data type, parameterized on a type, `A`
 case object Nil extends List[Nothing] // A `List` data constructor representing the empty list
@@ -44,8 +45,7 @@ object List {
       case Cons(x, xs) => f(x, foldRight(xs, z)(f))
     }
 
-  def sum2(ns: List[Int]) =
-    foldRight(ns, 0)((x, y) => x + y)
+  def sum2(ns: List[Int]) = foldRight(ns, 0)((x, y) => x + y)
 
   def product2(ns: List[Double]) =
     foldRight(ns, 1.0)(_ * _) // `_ * _` is more concise notation for `(x,y) => x * y`; see sidebar
@@ -72,6 +72,7 @@ object List {
     }
   }
 
+  @tailrec
   def dropWhile[A](l: List[A], f: A => Boolean): List[A] = l match {
     case Cons(h,t) if f(h) => dropWhile(t, f)
     case _ => l
@@ -101,7 +102,7 @@ object List {
    * @return
    */
   def init2[A](l: List[A]): List[A] = {
-    import collection.mutable.ListBuffer
+    import scala.collection.mutable.ListBuffer
     val buf = new ListBuffer[A]
     @tailrec
     def go(cur: List[A]): List[A] = cur match {
@@ -116,13 +117,89 @@ object List {
   encounters a 0.0 ? Why or why not? */
   /* creo que la recursión no se detendría porque el producto se calcularía después de que se hayan inferido
   todos los tipos mediante el uso del segundo parámetro, que es una función, y es precisamente la que provoca la
-  recursión ya que invocamos al mismo foldRight */
+  recursión ya que invocamos al mismo foldRight. Siempre se evaluará primero el argumento de la función antes que la
+  propia función, y el argumento es el foldRight */
 
-  def length[A](l: List[A]): Int = sys.error("todo")
+  /* EXERCISE 8: See what happens when you pass Nil and Cons themselves to
+  foldRight ,like this: foldRight(List(1,2,3), Nil:List[Int])(Cons(_,_))
+  What do you think this says about the relationship between foldRight and the data constructors of List ? */
+  /* creo que la relación entre foldRight y el constructor (método apply) de List es que foldRight podría generalizar
+   la funcionalidad del propio constructor */
 
-  def foldLeft[A, B](l: List[A], z: B)(f: (B, A) => B): B = sys.error("todo")
+  // en la función que definimos ponemos nosotros los argumentos y así decidimos qué utilizamos en la parte de la
+  // derecha. Como no vamos a usar el primer argumento no le dotamos de nombre
+  def length[A](l: List[A]): Int = foldRight(l, 0)((_, acc) => acc + 1)
 
-  def map[A, B](l: List[A])(f: A => B): List[B] = sys.error("todo")
+  def foldLeft[A, B](l: List[A], z: B)(f: (B, A) => B): B = l match {
+    case Nil => z
+    case Cons(h, t) => foldLeft(t, f(z, h))(f)
+  }
+
+  def sum3(ints: List[Int]): Int = foldLeft(ints, 0)(_ + _)
+
+  def product3(ds: List[Int]): Int = foldLeft(ds, 1)(_ * _)
+
+  def length2[A](l: List[A]): Int = foldLeft(l, 0)((acc, _) => acc + 1)
+
+  def reverse[A](l: List[A]): List[A] = foldLeft(l, Nil: List[A])((acc, h) => Cons(h, acc))
+
+  /* The implementation of `foldRight` in terms of `reverse` and `foldLeft` is a common trick for avoiding stack
+  overflows when implementing a strict `foldRight` function as we've done in this chapter. (We'll revisit this in a
+  later chapter, when we discuss laziness).
+  The other implementations build up a chain of functions which, when called, results in the operations being
+  performed with the correct associativity. We are calling `foldRight` with the `B` type being instantiated to `B =>
+  B`, then calling the built up function with the `z` argument. Try expanding the definitions by substituting equals
+  for equals using a simple example, like `foldLeft(List(1,2,3), 0)(_ + _)` if this isn't clear. Note these
+  implementations are more of theoretical interest - they aren't stack-safe and won't work for large lists. */
+  def foldRightViaFoldLeft[A,B](l: List[A], z: B)(f: (A,B) => B): B =
+  foldLeft(reverse(l), z)((b,a) => f(a,b))
+
+  def foldRightViaFoldLeft_1[A,B](l: List[A], z: B)(f: (A,B) => B): B =
+  foldLeft(l, (b:B) => b)((g,a) => b => g(f(a,b)))(z)
+
+  def foldLeftViaFoldRight[A,B](l: List[A], z: B)(f: (B,A) => B): B =
+  foldRight(l, (b:B) => b)((a,g) => b => g(f(b,a)))(z)
+
+  def length3[A](l: List[A]): Int = foldRightViaFoldLeft(l, 0)((_, acc) => acc + 1)
+  def length4[A](l: List[A]): Int = foldRightViaFoldLeft_1(l, 0)((_, acc) => acc + 1)
+  def reverse2[A](l: List[A]): List[A] = foldLeftViaFoldRight(l, List[A]())((acc, h) => Cons(h, acc))
+
+  def append2[A](a1: List[A], a2: List[A]): List[A] = foldRight(a1, a2)((h, acc) => Cons(h, acc))
+//  def append2[A](a1: List[A], a2: List[A]): List[A] = foldRight(a1, a2)(Cons(_, _))
+
+  def concat[A](lists: List[List[A]]): List[A] = foldRight(lists, Nil: List[A])(append)
+
+  def aggregate1(l: List[Int]): List[Int] = foldRight(l, Nil: List[Int])((h, acc) => Cons(h + 1, acc))
+
+  def doubleToString(l: List[Double]): List[String] = foldRight(l, Nil: List[String])((h, acc) => Cons(h.toString, acc))
+
+  def toString(l: List[Double]): String = foldRight(l, "": String)((h, acc) => {
+    if (acc.isEmpty) h.toString.concat(acc)
+    else h.toString.concat(", ").concat(acc)
+  })
+
+  /* A natural solution is using `foldRight`, but our implementation of `foldRight` is not stack-safe. We can use
+   `foldRightViaFoldLeft` to avoid the stack overflow (variation 1), but more commonly, with our current
+   implementation of `List`, `map` will just be implemented using local mutation (variation 2). Again, note that the
+   mutation isn't observable outside the function, since we're only mutating a buffer that we've allocated. */
+  def map[A, B](l: List[A])(f: A => B): List[B] = {
+    foldRight(l, Nil: List[B])((h, t) => Cons(f(h), t))
+  }
+
+  def map2[A, B](l: List[A])(f: A => B): List[B] = {
+    foldRightViaFoldLeft(l, Nil: List[B])((h, t) => Cons(f(h), t))
+  }
+
+  def mapRsaez[A, B](l: List[A])(f: A => B): List[B] = {
+    import scala.collection.mutable.ListBuffer
+    val buf = new ListBuffer[B]
+    @tailrec
+    def go(cur: List[A]): List[B] = cur match {
+      case Nil => List(buf.toList: _*) // convirtiendo a nuestra List implementada
+      case Cons(h, t) => buf += f(h); go(t)
+    }
+    go(l)
+  }
 
 }
 
@@ -151,5 +228,23 @@ object Prueba {
     println("Exercise 6: " + List.init(lista2))
     println("Exercise 6.2: " + List.init2(lista2)) // es digno de ver las operaciones que se hacen en la clase Vector
     // con bytes para manejar los bloques donde se almacenan los datos dentro de la estructura O_o
+    println("Exercise 9 --> length: " + List.length(lista2))
+    println("Exercise 10 --> foldLeft: " + List.foldLeft(lista2, 0)(_ + _))
+    println("Exercise 11a --> sum3 with foldLeft: " + List.sum3(lista2))
+    println("Exercise 11b --> product3 with foldLeft: " + List.product3(lista2))
+    println("Exercise 11c --> length2 with foldLeft: " + List.length2(lista2))
+    println("Exercise 12 --> reverse list using some fold: " + List.reverse(lista2))
+    println("Exercise 13a --> length: " + List.length3(lista2))
+    println("Exercise 13b --> length: " + List.length4(lista2))
+    println("Exercise 13c --> reverse using foldLeftViaFoldRight: " + List.reverse2(lista2))
+    val lista3: List[Int] = List(6,7,8,9)
+    println("Exercise 14 --> append using foldLef: " + List.append2(lista2, lista3))
+    println("Exercise 15 --> append lists of list using foldRight: " + List.concat(List(lista2, lista3)))
+    val lista4: List[Double] = List(1.0,2.0,3.0,4.0)
+    println("Exercise 17a --> List[Double] to List[String]: " + List.doubleToString(lista4))
+    println("Exercise 17b --> List[Double] to String: " + List.toString(lista4))
+    println("Exercise 18a --> implementation of map: " + List.map(lista4)(value => value.toString))
+    println("Exercise 18b --> implementation of map: " + List.map2(lista4)(value => value.toString))
+    println("Exercise 18c --> implementation of map rsaez: " + List.mapRsaez(lista4)(value => value.toString))
   }
 }
