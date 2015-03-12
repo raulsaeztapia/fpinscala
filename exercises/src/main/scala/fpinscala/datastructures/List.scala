@@ -182,13 +182,9 @@ object List {
    `foldRightViaFoldLeft` to avoid the stack overflow (variation 1), but more commonly, with our current
    implementation of `List`, `map` will just be implemented using local mutation (variation 2). Again, note that the
    mutation isn't observable outside the function, since we're only mutating a buffer that we've allocated. */
-  def map[A, B](l: List[A])(f: A => B): List[B] = {
-    foldRight(l, Nil: List[B])((h, t) => Cons(f(h), t))
-  }
+  def map[A, B](l: List[A])(f: A => B): List[B] = foldRight(l, Nil: List[B])((h, t) => Cons(f(h), t))
 
-  def map2[A, B](l: List[A])(f: A => B): List[B] = {
-    foldRightViaFoldLeft(l, Nil: List[B])((h, t) => Cons(f(h), t))
-  }
+  def map2[A, B](l: List[A])(f: A => B): List[B] = foldRightViaFoldLeft(l, Nil: List[B])((h, t) => Cons(f(h), t))
 
   def mapRsaez[A, B](l: List[A])(f: A => B): List[B] = {
     import scala.collection.mutable.ListBuffer
@@ -201,6 +197,37 @@ object List {
     go(l)
   }
 
+  def filter[A](l: List[A])(f: A => Boolean): List[A] = foldRightViaFoldLeft(l, Nil: List[A])(
+    (h, acc) => if (f(h)) Cons(h, acc) else acc)
+
+  def flatMap[A,B](l: List[A])(f: A => List[B]): List[B] = concat(map(l)(f))
+
+  def filterByFlatMap[A](l: List[A])(f: A => Boolean): List[A] = flatMap(l)(x => if (f(x)) Cons(x, Nil) else Nil)
+
+  def addPairwise(a: List[Int], b: List[Int]): List[Int] = (a, b) match {
+    case (Nil, _) => Nil
+    case (_, Nil) => Nil
+    case (Cons(ha, ta), Cons(hb, tb)) => Cons(ha + hb, addPairwise(ta, tb))
+  }
+
+  def zipWith[A, B, C](a: List[A], b: List[B])(f: (A, B) => C): List[C] = (a, b) match {
+    case (Nil, _) => Nil
+    case (_, Nil) => Nil
+    case (Cons(ha, ta), Cons(hb, tb)) => Cons(f(ha, hb), zipWith(ta, tb)(f))
+  }
+
+
+  def startsWith[A](l: List[A], sub: List[A]): Boolean = (l, sub) match {
+    case (_, Nil) => true
+    case (Cons(h, t), Cons(h2, t2)) if h == h2 => startsWith(t, t2)
+    case _ => false
+  }
+
+  def hasSubsequence[A](l: List[A], sub: List[A]): Boolean = l match {
+    case Nil => false
+    case Cons(h, t) if startsWith(l, sub) => true
+    case Cons(h, t) => hasSubsequence(t, sub)
+  }
 }
 
 /**
@@ -246,5 +273,17 @@ object Prueba {
     println("Exercise 18a --> implementation of map: " + List.map(lista4)(value => value.toString))
     println("Exercise 18b --> implementation of map: " + List.map2(lista4)(value => value.toString))
     println("Exercise 18c --> implementation of map rsaez: " + List.mapRsaez(lista4)(value => value.toString))
+    println("Exercise 19 --> implementation of filter: " + List.filter(lista2)(x => x % 2 == 0))
+    println("Exercise 20 --> implementation of flatMap: " + List.flatMap(lista2)(x => List(x, x)))
+    println("Exercise 21 --> implementation of filter with flatMap: " + List.filterByFlatMap(lista2)(x => x > 2))
+    println("Exercise 22 --> addPairwise method for plus integers from two lists : " + List.addPairwise(lista2, lista3))
+    println("Exercise 23 --> doPairwise method for do operations on two lists on Integers: " +
+        List.zipWith(lista2, lista3)(_ + _))
+    val lista5 = List("a", "b", "c")
+    val lista6 = List("d", "e", "f")
+    println("Exercise 23b --> doPairwise method for do operations on two lists of Strings: " +
+        List.zipWith(lista5, lista6)(_ + " -> " + "" + _))
+    println("Exercise 24 --> a list has a subsequence list: " + List.addPairwise
+        (lista2, lista3))
   }
 }
