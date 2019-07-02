@@ -108,7 +108,10 @@ object List {
     def go(cur: List[A]): List[A] = cur match {
       case Nil => sys.error("init of empty list")
       case Cons(_, Nil) =>  List(buf.toList: _*)
-      case Cons(h, t) => buf += h; go(t)
+      case Cons(h, t) => {
+        buf += h
+        go(t)
+      }
     }
     go(l)
   }
@@ -122,7 +125,7 @@ object List {
 
   /* EXERCISE 8: See what happens when you pass Nil and Cons themselves to
   foldRight ,like this: foldRight(List(1,2,3), Nil:List[Int])(Cons(_,_))
-  What do you think this says about the relationship between foldRight and the data constructors of List ? */
+  What do you think this says about the relation3ship between foldRight and the data constructors of List ? */
   /* creo que la relación entre foldRight y el constructor (método apply) de List es que foldRight podría generalizar
    la funcionalidad del propio constructor */
 
